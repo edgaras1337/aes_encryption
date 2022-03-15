@@ -111,14 +111,21 @@ while (opt != '0')
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
-
                 continue;
             }
         }
         else
         {
-            // encrypt data with auto generated key
-            encrypted = AesService.EncryptToBytes(messageToEncrypt, null, null, cipherMode);
+            try
+            {
+                // encrypt data with auto generated key
+                encrypted = AesService.EncryptToBytes(messageToEncrypt, null, null, cipherMode);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"\n{ex.Message}");
+                continue;
+            }
         }
 
         Console.WriteLine($"\nEncrypted message: {Convert.ToBase64String(encrypted.MessageBytes)}");
@@ -132,24 +139,32 @@ while (opt != '0')
 
             if (yn == 'y')
             {
-                // get the solution directory
-                string workingDir = Environment.CurrentDirectory;
-                string solutionDir = Directory.GetParent(workingDir)!.Parent!.Parent!.FullName;
-
-                // create a file path inside the solution directory
-                filePath = Path.Combine(solutionDir, "encoded.txt");
-
-                // write the message converted to base64 string
-                using (var outputFile = new StreamWriter(filePath))
+                try
                 {
-                    outputFile.WriteLine(Convert.ToBase64String(encrypted.MessageBytes));
+                    // get the solution directory
+                    string workingDir = Environment.CurrentDirectory;
+                    string solutionDir = Directory.GetParent(workingDir)!.Parent!.Parent!.FullName;
+
+                    // create a file path inside the solution directory
+                    filePath = Path.Combine(solutionDir, "encoded.txt");
+
+                    // write the message converted to base64 string
+                    using (var outputFile = new StreamWriter(filePath))
+                    {
+                        outputFile.WriteLine(Convert.ToBase64String(encrypted.MessageBytes));
+                    }
+
+                    // create object with the data of encrypted message which is saved in file
+                    encryptedFile = new EncryptedMessage(
+                        encrypted.MessageBytes, encrypted.Key, encrypted.IV, cipherMode);
+
+                    Console.WriteLine("\nMessage saved successfully!");
                 }
-
-                // create object with the data of encrypted message which is saved in file
-                encryptedFile = new EncryptedMessage(
-                    encrypted.MessageBytes, encrypted.Key, encrypted.IV, cipherMode);
-
-                Console.WriteLine("\nMessage saved successfully!");
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"\n{ex.Message}");
+                    continue;
+                }
             }
             else if (yn != 'n')
             {
@@ -157,52 +172,66 @@ while (opt != '0')
             }
         }
 
-        Console.Write("\nDo you want to decrypt the same message? (Y/N) ");
-        yn = ' ';
-        while (yn != 'y' && yn != 'n')
+        try
         {
-            yn = char.ToLower(Console.ReadKey(true).KeyChar);
-            Console.WriteLine(yn);
-
-            if (yn == 'y')
+            Console.Write("\nDo you want to decrypt the same message? (Y/N) ");
+            yn = ' ';
+            while (yn != 'y' && yn != 'n')
             {
-                // decrypt message
-                string roundTrip = AesService.DecryptFromBytes(
-                    encrypted.MessageBytes, encrypted.Key, encrypted.IV, cipherMode);
+                yn = char.ToLower(Console.ReadKey(true).KeyChar);
+                Console.WriteLine(yn);
 
-                Console.WriteLine($"\nDecrypted message: {roundTrip}");
+                if (yn == 'y')
+                {
+                    // decrypt message
+                    string roundTrip = AesService.DecryptFromBytes(
+                        encrypted.MessageBytes, encrypted.Key, encrypted.IV, cipherMode);
+
+                    Console.WriteLine($"\nDecrypted message: {roundTrip}");
+                }
+                else if (yn != 'n')
+                {
+                    Console.WriteLine("Wrong input!");
+                }
             }
-            else if (yn != 'n')
-            {
-                Console.WriteLine("Wrong input!");
-            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"\n{ex.Message}");
         }
     }
     else if (opt == '3')
     {
-        // check if file or object with encryption params exists
-        if (encryptedFile is null || !File.Exists(filePath))
+        try
         {
-            Console.WriteLine("\nNo data was found!");
-            continue;
-        }
+            // check if file or object with encryption params exists
+            if (encryptedFile is null || !File.Exists(filePath))
+            {
+                Console.WriteLine("\nNo data was found!");
+                continue;
+            }
 
-        // read encoded message to string from file
-        string messageString;
-        using (var reader = new StreamReader(filePath))
+            // read encoded message to string from file
+            string messageString;
+            using (var reader = new StreamReader(filePath))
+            {
+                messageString = reader.ReadToEnd();
+            }
+            // convert string to bytes
+            byte[] messageBytes = Convert.FromBase64String(messageString);
+
+            // decrypt bytes into a string
+            // passing: converted message bytes, key and IV stored in an object
+            string roundTrip = AesService.DecryptFromBytes(
+                messageBytes, encryptedFile.Key, encryptedFile.IV, cipherMode);
+
+            Console.WriteLine($"\nEncrypted message read from file: {messageString}");
+            Console.WriteLine($"Decrypted message from file: {roundTrip}");
+        }
+        catch (Exception ex)
         {
-            messageString = reader.ReadToEnd();
+            Console.WriteLine($"\n{ex.Message}");
         }
-        // convert string to bytes
-        byte[] messageBytes = Convert.FromBase64String(messageString);
-
-        // decrypt bytes into a string
-        // passing: converted message bytes, key and IV stored in an object
-        string roundTrip = AesService.DecryptFromBytes(
-            messageBytes, encryptedFile.Key, encryptedFile.IV, cipherMode);
-
-        Console.WriteLine($"\nEncrypted message read from file: {messageString}");
-        Console.WriteLine($"Decrypted message from file: {roundTrip}");
     }
     else if (opt == '0')
     {
@@ -213,6 +242,7 @@ while (opt != '0')
         Console.WriteLine("\nWrong input!");
     }
 }
+// delete file with encrypted data on close
 if (File.Exists(filePath))
 {
     File.Delete(filePath);
