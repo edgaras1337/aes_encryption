@@ -2,10 +2,12 @@
 using System.Security.Cryptography;
 using System.Text;
 
+// set the default values
 char opt = ' ';
-
 string filePath = "";
-EncryptedMessage? encryptedFile = null;// = new EncryptedMessage();
+EncryptedMessage? encryptedFile = null;
+CipherMode cipherMode = CipherMode.CBC; // random default mode, it will be changed later
+
 while (opt != '0')
 {
     Console.WriteLine("\n----------------------");
@@ -23,12 +25,44 @@ while (opt != '0')
         EncryptedMessage encrypted;
         string messageToEncrypt = "";
 
+        // choose the cipher mode
+        Console.WriteLine("\n1 - ECB");
+        Console.WriteLine("2 - CBC");
+        Console.WriteLine("3 - CFB");
+
+        CipherMode? tempMode = null;
+        while (tempMode is null)
+        {
+            Console.Write("\nChoose a cypher mode: ");
+            char modeOpt = Console.ReadKey(true).KeyChar;
+            Console.Write(modeOpt);
+
+            switch (modeOpt)
+            {
+                case '1':
+                    tempMode = CipherMode.ECB;
+                    break;
+                case '2':
+                    tempMode = CipherMode.CBC;
+                    break;
+                case '3':
+                    tempMode = CipherMode.CFB;
+                    break;
+                default:
+                    Console.WriteLine("\n\nWrong input!");
+                    break;
+            }
+        }
+        cipherMode = (CipherMode)tempMode;
+
+        // enter message to encrypt
         while (messageToEncrypt == "")
         {
-            Console.Write("Enter your message: ");
+            Console.Write("\n\nEnter your message: ");
             messageToEncrypt = Console.ReadLine()!;
         }
 
+        // insert custom key
         if (opt == '2')
         {
             try
@@ -40,6 +74,7 @@ while (opt != '0')
                     keyString = Console.ReadLine()!;
                 }
 
+                // check the length of key and add padding accordingly (16, 24 or 32 bits)
                 if (keyString.Length < 16)
                 {
                     keyString = keyString.PadLeft(16, '*');
@@ -58,6 +93,7 @@ while (opt != '0')
                 }
                 byte[] keyBytes = Encoding.UTF8.GetBytes(keyString);
 
+                // change key size based on key length
                 int? keySize = null;
                 if (keyBytes.Length > 16)
                 {
@@ -68,7 +104,8 @@ while (opt != '0')
                     keySize = 256;
                 }
 
-                encrypted = AesService.EncryptToBytes(messageToEncrypt, keyBytes, keySize);
+                // encrypt the data with custom key
+                encrypted = AesService.EncryptToBytes(messageToEncrypt, keyBytes, keySize, cipherMode);
 
             }
             catch (Exception ex)
@@ -80,7 +117,8 @@ while (opt != '0')
         }
         else
         {
-            encrypted = AesService.EncryptToBytes(messageToEncrypt, null, null);
+            // encrypt data with auto generated key
+            encrypted = AesService.EncryptToBytes(messageToEncrypt, null, null, cipherMode);
         }
 
         Console.WriteLine($"\nEncrypted message: {Convert.ToBase64String(encrypted.MessageBytes)}");
@@ -94,17 +132,22 @@ while (opt != '0')
 
             if (yn == 'y')
             {
+                // get the solution directory
                 string workingDir = Environment.CurrentDirectory;
-                string projDir = Directory.GetParent(workingDir)!.Parent!.Parent!.FullName;
-                filePath = Path.Combine(projDir, "encoded.txt");
+                string solutionDir = Directory.GetParent(workingDir)!.Parent!.Parent!.FullName;
 
+                // create a file path inside the solution directory
+                filePath = Path.Combine(solutionDir, "encoded.txt");
+
+                // write the message converted to base64 string
                 using (var outputFile = new StreamWriter(filePath))
                 {
                     outputFile.WriteLine(Convert.ToBase64String(encrypted.MessageBytes));
                 }
 
-                encryptedFile = new EncryptedMessage(encrypted.MessageBytes, encrypted.Key, encrypted.IV);
-
+                // create object with the data of encrypted message which is saved in file
+                encryptedFile = new EncryptedMessage(
+                    encrypted.MessageBytes, encrypted.Key, encrypted.IV, cipherMode);
 
                 Console.WriteLine("\nMessage saved successfully!");
             }
@@ -123,7 +166,10 @@ while (opt != '0')
 
             if (yn == 'y')
             {
-                string roundTrip = AesService.DecryptFromBytes(encrypted.MessageBytes, encrypted.Key, encrypted.IV);
+                // decrypt message
+                string roundTrip = AesService.DecryptFromBytes(
+                    encrypted.MessageBytes, encrypted.Key, encrypted.IV, cipherMode);
+
                 Console.WriteLine($"\nDecrypted message: {roundTrip}");
             }
             else if (yn != 'n')
@@ -134,6 +180,7 @@ while (opt != '0')
     }
     else if (opt == '3')
     {
+        // check if file or object with encryption params exists
         if (encryptedFile is null || !File.Exists(filePath))
         {
             Console.WriteLine("\nNo data was found!");
@@ -152,7 +199,7 @@ while (opt != '0')
         // decrypt bytes into a string
         // passing: converted message bytes, key and IV stored in an object
         string roundTrip = AesService.DecryptFromBytes(
-            messageBytes, encryptedFile.Key, encryptedFile.IV);
+            messageBytes, encryptedFile.Key, encryptedFile.IV, cipherMode);
 
         Console.WriteLine($"\nEncrypted message read from file: {messageString}");
         Console.WriteLine($"Decrypted message from file: {roundTrip}");

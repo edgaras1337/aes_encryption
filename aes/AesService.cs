@@ -9,7 +9,8 @@ namespace aes
 {
     public class AesService
     {
-        public static EncryptedMessage EncryptToBytes(string plainText, byte[]? key, int? keySize)
+        public static EncryptedMessage EncryptToBytes(
+            string plainText, byte[]? key, int? keySize, CipherMode cipherMode)
         {
             byte[] encrypted;
             byte[] iv;
@@ -30,6 +31,8 @@ namespace aes
                 }
                 iv = aesAlg.IV;
 
+                aesAlg.Mode = cipherMode;
+
                 // Create an encryptor to perform the stream transform.
                 ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
 
@@ -45,10 +48,10 @@ namespace aes
             }
 
             // Return the encrypted bytes from the memory stream.
-            return new EncryptedMessage(encrypted, key, iv);
+            return new EncryptedMessage(encrypted, key, iv, cipherMode);
         }
 
-        public static string DecryptFromBytes(byte[] cipherText, byte[] key, byte[] iv)
+        public static string DecryptFromBytes(byte[] cipherText, byte[] key, byte[] iv, CipherMode mode)
         {
             string? plaintext = null;
 
@@ -56,6 +59,8 @@ namespace aes
             {
                 aesAlg.Key = key;
                 aesAlg.IV = iv;
+
+                aesAlg.Mode = mode;
 
                 ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
