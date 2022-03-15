@@ -16,6 +16,7 @@ namespace aes
             byte[] iv;
             using (Aes aesAlg = Aes.Create())
             {
+                // set cipher parameters (key, key size, cipher mode)
                 if (key != null && keySize != null)
                 {
                     if (keySize != null)
@@ -29,25 +30,24 @@ namespace aes
                 {
                     key = aesAlg.Key;
                 }
-                iv = aesAlg.IV;
-
                 aesAlg.Mode = cipherMode;
 
-                // Create an encryptor to perform the stream transform.
+                // store aes IV, to later use inside EncryptedMessage obj
+                iv = aesAlg.IV;
+
+                // create encryptor for CryptoStream
                 ICryptoTransform encryptor = aesAlg.CreateEncryptor(aesAlg.Key, aesAlg.IV);
 
-                // Create the streams used for encryption.
+                // create the streams used for encryption
                 using var msEncrypt = new MemoryStream();
                 using var csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write);
                 using (var swEncrypt = new StreamWriter(csEncrypt))
                 {
-                    //Write all data to the stream.
                     swEncrypt.Write(plainText);
                 }
                 encrypted = msEncrypt.ToArray();
             }
 
-            // Return the encrypted bytes from the memory stream.
             return new EncryptedMessage(encrypted, key, iv, cipherMode);
         }
 
@@ -57,13 +57,15 @@ namespace aes
 
             using (Aes aesAlg = Aes.Create())
             {
+                // set cipher parameters
                 aesAlg.Key = key;
                 aesAlg.IV = iv;
-
                 aesAlg.Mode = mode;
 
+                // create decryptor for CryptoStream
                 ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
+                // create streams used for decryption
                 using var msDecrypt = new MemoryStream(cipherText);
                 using var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read);
                 using var srDecrypt = new StreamReader(csDecrypt);
